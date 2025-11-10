@@ -437,18 +437,28 @@ terraform destroy
 
 ---
 
-## Next Steps: Production-Ready EKS
+## Next Steps: Advanced EKS Templates and Best Practices
 
-This workshop taught you the fundamentals, but for **production deployments**, explore the official AWS EKS Blueprints:
+This workshop taught you the fundamentals of EKS deployment. To explore more advanced patterns and learn production best practices:
 
 **🔗 [AWS EKS Blueprints for Terraform](https://github.com/aws-ia/terraform-aws-eks-blueprints)**
 
 **What you'll find there:**
-- **Production-ready patterns** with security best practices
+- **Advanced templates** with comprehensive configurations
 - **Add-on integrations** (monitoring, logging, autoscaling)
 - **Multi-environment setups** (dev, staging, prod)
 - **Advanced networking** configurations
 - **GitOps patterns** and CI/CD integration
-- **Compliance and security** hardening
+- **Security hardening** examples
 
-The blueprints build on the concepts you learned today but add enterprise-grade features for real-world deployments.
+**🔗 [AWS EKS Best Practices Guide](https://docs.aws.amazon.com/eks/latest/best-practices/introduction.html)**
+
+**Essential reading for:**
+- **Security best practices** for production workloads
+- **Networking recommendations** and patterns
+- **Monitoring and logging** strategies
+- **Cost optimization** techniques
+- **Reliability and availability** guidance
+- **Performance tuning** recommendations
+
+The blueprints provide ready-to-use templates, while the best practices guide helps you understand the "why" behind production-ready EKS deployments.
