@@ -1,7 +1,7 @@
 # EKS Cluster Configuration using Terraform Modules
 # This is the real-world approach - modules handle complexity for you
 
-
+/*
 # ============================================================================
 # PHASE 2: EKS CLUSTER - Uncomment this section for Phase 2
 # ============================================================================
@@ -30,7 +30,9 @@ module "eks" {
   # - Security groups for cluster communication
   # - CloudWatch log group for cluster logs
   # - OIDC identity provider for service accounts
+*/
 
+/*
   # EKS Managed Node Groups - uncomment for Phase 3
   eks_managed_node_groups = {
     workshop_nodes = {
@@ -60,7 +62,7 @@ module "eks" {
   tags = local.common_tags
 }
 
-
+*/
 
 # ============================================================================
 # PHASE 3: Node groups are now configured within the main EKS module above
