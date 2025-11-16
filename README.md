@@ -112,17 +112,6 @@ Type `yes` when prompted to confirm.
 5. **Check NAT Gateways**: You should see `eks-workshop-nat-gateway` in a public subnet
 6. **Check Route Tables**: You should see public and private route tables with proper routes
 
-### What Gets Created:
-- **VPC**: Your isolated network environment (10.0.0.0/16)
-- **Public Subnets**: For load balancers and NAT gateway (internet-accessible)
-- **Private Subnets**: For EKS worker nodes (secure, no direct internet access)
-- **Internet Gateway**: Allows public subnet resources to reach the internet
-- **NAT Gateway**: Allows private subnet resources to reach internet for updates
-- **Route Tables**: Define how traffic flows between subnets
-- **Security Groups**: Firewall rules for EKS cluster and nodes
-
-**What's Next:** With networking in place, we'll create the EKS control plane.
-
 ---
 
 ## Phase 2: Deploy EKS Clusters (Managed Node Groups + Auto Mode)
