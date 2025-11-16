@@ -113,7 +113,7 @@ Type `yes` when prompted to confirm.
 
 **What we're building:** Two different types of EKS clusters to compare managed node group operations vs. Auto Mode capabilities.
 
-**Why deploy both:** This allows you to understand the differences between EKS with managed node groups (where you manage scaling and instance types) and EKS Auto Mode (where AWS automatically handles compute with Karpenter-like capabilities and integrated services).
+**Why deploy both:** This allows you to understand the differences between EKS with managed node groups (where you manage scaling and instance types) and EKS Auto Mode (where AWS automatically handles compute with Karpenter and integrated services).
 
 ### Steps:
 
@@ -168,7 +168,12 @@ kubectl expose deployment nginx-managed --port=80 --type=LoadBalancer --name=ngi
 ```bash
 kubectl get service nginx-managed-service
 ```
-> **Note:** Wait 3-5 minutes for the LoadBalancer to be ready, then copy the EXTERNAL-IP and browse to it in your web browser to see the nginx welcome page.
+
+5. **Verify LoadBalancer in AWS Console:**
+   - Go to **EC2 → Load Balancers**
+   - You should see a new **Classic Load Balancer** being created
+   - Wait until the state shows "InService" (takes 3-5 minutes)
+   - Copy the DNS name and browse to it in your web browser to see the nginx welcome page
 
 ### Step 2: Test EKS Auto Mode Cluster
 
@@ -211,11 +216,11 @@ kubectl get pods -o wide
 - ❌ Manual node group scaling and management required
 
 **EKS Auto Mode:**
-- ✅ Nodes created only when needed (Karpenter-like behavior)
+- ✅ Nodes created only when needed (Karpenter behavior)
 - ✅ Optimal instance types selected automatically
 - ✅ Built-in AWS service integration (EBS CSI, Load Balancer Controller)
 - ✅ No manual node management
-- ✅ Fast node provisioning with Karpenter-like capabilities
+- ✅ Fast node provisioning with Karpenter
 
 ### Step 4: Test Auto Scaling (Auto Mode)
 
