@@ -196,16 +196,35 @@ kubectl expose deployment nginx-automode --port=80 --type=LoadBalancer --name=ng
 ```
 
 4. **Watch Auto Mode in action:**
+
+   **Step 4a: Watch nodes being automatically created**
+   ```bash
+   kubectl get nodes -w
+   ```
+   > **Note:** This will show nodes appearing automatically (takes 2-3 minutes). Press Ctrl+C to stop watching.
+
+   **Step 4b: Check Auto Mode node pools**
+   ```bash
+   kubectl get nodepools -A
+   ```
+   > **Explanation:** Auto Mode uses node pools to manage different types of workloads (general-purpose, system).
+
+   **Step 4c: Verify pod is running**
+   ```bash
+   kubectl get pods -o wide
+   ```
+   > **Explanation:** The `-o wide` flag shows which node each pod is running on.
+
+5. **Check the service and verify LoadBalancer:**
 ```bash
-# Watch nodes being automatically created (takes 2-3 minutes)
-kubectl get nodes -w
-
-# Check Auto Mode node pools
-kubectl get nodepools -A
-
-# Verify pod is running
-kubectl get pods -o wide
+kubectl get service nginx-automode-service
 ```
+
+6. **Verify LoadBalancer in AWS Console:**
+   - Go to **EC2 → Load Balancers**
+   - You should see a new **Classic Load Balancer** being created
+   - Wait until the state shows "InService" (takes 3-5 minutes)
+   - Copy the DNS name and browse to it in your web browser to see the nginx welcome page
 
 ### Step 3: Compare Both Clusters
 
