@@ -125,28 +125,26 @@ Type `yes` when prompted to confirm.
 
 ---
 
-## Phase 2: Deploy EKS Clusters (Traditional + Auto Mode)
+## Phase 2: Deploy EKS Clusters (Managed Node Groups + Auto Mode)
 
-**What we're building:** Two different types of EKS clusters to compare traditional management vs. Auto Mode.
+**What we're building:** Two different types of EKS clusters to compare managed node group operations vs. Auto Mode capabilities.
 
-**Why deploy both:** This allows you to understand the differences between traditional EKS (where you manage node groups) and EKS Auto Mode (where AWS manages compute automatically).
+**Why deploy both:** This allows you to understand the differences between EKS with managed node groups (where you manage scaling and instance types) and EKS Auto Mode (where AWS automatically handles compute with Karpenter-like capabilities and integrated services).
 
 ### Steps:
 
-1. **Uncomment both EKS configurations** in `eks.tf` and `eks-automode.tf`
-
-2. **Initialize and apply:**
+1. **Initialize and apply:**
 ```bash
 terraform init
 terraform apply
 ```
 
 > **Note:** Both EKS clusters creation typically takes 10-15 minutes to complete.
-> **Note:** Only the traditional cluster will have managed node groups - Auto Mode provisions compute on-demand.
+> **Note:** Only the managed node group cluster will have pre-provisioned nodes - Auto Mode provisions compute on-demand.
 
 ### ✅ Verify Both EKS Clusters in AWS Console:
 
-**Traditional EKS Cluster (`eks-workshop-cluster`):**
+**EKS with Managed Node Groups (`eks-workshop-cluster`):**
 1. **Go to AWS Console → EKS → Clusters**
 2. **Check Cluster Status**: You should see `eks-workshop-cluster` with status "Active"
 3. **Check Compute Tab**: You should see `eks-workshop-nodes` node group with status "Active"
@@ -159,7 +157,7 @@ terraform apply
 
 ### What Gets Created:
 
-**Traditional EKS Cluster:**
+**EKS with Managed Node Groups:**
 - **EKS Cluster**: Kubernetes version 1.34 control plane
 - **Managed Node Group**: 2 EC2 instances (t3.medium)
 - **IAM Roles**: With required policies automatically attached
@@ -169,11 +167,11 @@ terraform apply
 - **EKS Cluster**: Kubernetes version 1.34 control plane with Auto Mode enabled
 - **Node Pools**: `general-purpose` and `system` pools (no pre-provisioned nodes)
 - **Enhanced IAM Policies**: Additional policies for compute, storage, networking, and load balancing
-- **Automatic Provisioning**: Nodes created only when workloads are deployed
+- **Automatic Provisioning**: Nodes created only when workloads are deployed (Karpenter-like behavior)
 
 **Key Differences:**
-- **Traditional**: You manage node groups, scaling, instance types
-- **Auto Mode**: AWS automatically provisions optimal compute based on workload requirements
+- **Managed Node Groups**: You manage node groups, scaling, instance types manually
+- **Auto Mode**: AWS automatically provisions optimal compute with built-in Karpenter-like capabilities and integrated AWS services
 
 **What's Next:** Test both clusters to see the operational differences.
 
@@ -183,9 +181,9 @@ terraform apply
 
 **What we're doing:** Testing both EKS clusters with real applications to compare traditional vs. Auto Mode operations.
 
-### Step 1: Test Traditional EKS Cluster
+### Step 1: Test EKS with Managed Node Groups
 
-1. **Configure kubectl for traditional cluster:**
+1. **Configure kubectl for managed node group cluster:**
 ```bash
 aws eks update-kubeconfig --region <your-region> --name eks-workshop-cluster
 ```
@@ -198,13 +196,13 @@ You should see 2 nodes in "Ready" status.
 
 3. **Deploy nginx application:**
 ```bash
-kubectl create deployment nginx-traditional --image=nginx
-kubectl expose deployment nginx-traditional --port=80 --type=LoadBalancer --name=nginx-traditional-service
+kubectl create deployment nginx-managed --image=nginx
+kubectl expose deployment nginx-managed --port=80 --type=LoadBalancer --name=nginx-managed-service
 ```
 
 4. **Check the service:**
 ```bash
-kubectl get service nginx-traditional-service
+kubectl get service nginx-managed-service
 ```
 
 ### Step 2: Test EKS Auto Mode Cluster
@@ -240,15 +238,16 @@ kubectl get pods -o wide
 
 ### Step 3: Compare Both Clusters
 
-**Traditional EKS:**
+**EKS with Managed Node Groups:**
 - ✅ Nodes pre-provisioned and always running
 - ✅ Predictable capacity and performance
 - ❌ Paying for unused capacity
-- ❌ Manual node group management required
+- ❌ Manual node group scaling and management required
 
 **EKS Auto Mode:**
-- ✅ Nodes created only when needed
+- ✅ Nodes created only when needed (Karpenter-like behavior)
 - ✅ Optimal instance types selected automatically
+- ✅ Built-in AWS service integration (EBS CSI, Load Balancer Controller)
 - ✅ No manual node management
 - ❌ Cold start delay for first workloads
 
