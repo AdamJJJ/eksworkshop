@@ -90,12 +90,7 @@ region = "us-west-2"  # Change to your preferred region
 terraform init
 ```
 
-3. Review what will be created:
-```bash
-terraform plan
-```
-
-4. Deploy only the VPC infrastructure:
+3. Deploy only the VPC infrastructure:
 ```bash
 terraform apply -target=aws_vpc.main -target=aws_subnet.public -target=aws_subnet.private -target=aws_internet_gateway.main -target=aws_nat_gateway.main -target=aws_route_table.public -target=aws_route_table.private -target=aws_route_table_association.public -target=aws_route_table_association.private -target=aws_security_group.eks_cluster -target=aws_security_group.eks_nodes -target=aws_eip.nat
 ```
@@ -122,9 +117,8 @@ Type `yes` when prompted to confirm.
 
 ### Steps:
 
-1. **Initialize and apply:**
+1. **Deploy both EKS clusters:**
 ```bash
-terraform init
 terraform apply
 ```
 
@@ -249,6 +243,12 @@ kubectl get pods -o wide
 
 ### Test 1: Auto Mode System Components
 
+**Step 1: Connect to Auto Mode cluster**
+```bash
+aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
+```
+
+**Step 2: Check Auto Mode components**
 ```bash
 # Check Auto Mode CRDs (Custom Resource Definitions)
 kubectl get crd | grep eks.amazonaws.com
@@ -272,11 +272,8 @@ kubectl get pods -A | grep -E "(ebs-csi|aws-load-balancer)"
 
 **What we're testing:** Auto Mode's built-in EBS CSI driver functionality.
 
+**Step 1: Create storage class**
 ```bash
-# Ensure you're connected to Auto Mode cluster
-aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
-
-# Create storage class (Auto Mode provides EBS CSI automatically)
 kubectl apply -f - <<EOF
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -290,8 +287,10 @@ parameters:
   type: gp3
   encrypted: "true"
 EOF
+```
 
-# Test storage functionality
+**Step 2: Test storage functionality**
+```bash
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -321,8 +320,10 @@ spec:
     persistentVolumeClaim:
       claimName: auto-pvc
 EOF
+```
 
-# Verify automatic provisioning
+**Step 3: Verify automatic provisioning**
+```bash
 kubectl get pvc auto-pvc
 kubectl get pods storage-test
 kubectl get pv
@@ -337,11 +338,8 @@ kubectl get pv
 
 **What we're testing:** Auto Mode's built-in AWS Load Balancer Controller functionality.
 
+**Step 1: Create IngressClassParams**
 ```bash
-# Ensure you're connected to Auto Mode cluster
-aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
-
-# Step 1: Create IngressClassParams (AWS-specific ALB configuration)
 kubectl apply -f - <<EOF
 apiVersion: eks.amazonaws.com/v1
 kind: IngressClassParams
@@ -350,8 +348,10 @@ metadata:
 spec:
   scheme: internet-facing
 EOF
+```
 
-# Step 2: Create IngressClass (tells EKS Auto Mode to handle ALB)
+**Step 2: Create IngressClass**
+```bash
 kubectl apply -f - <<EOF
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
@@ -366,11 +366,15 @@ spec:
     kind: IngressClassParams
     name: alb
 EOF
+```
 
-# Step 3: Create a service for our nginx deployment
+**Step 3: Create service for nginx deployment**
+```bash
 kubectl expose deployment nginx-automode --port=80 --name=nginx-automode-service
+```
 
-# Step 4: Create Ingress (triggers ALB creation)
+**Step 4: Create Ingress to trigger ALB**
+```bash
 kubectl apply -f - <<EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -389,8 +393,10 @@ spec:
                 port:
                   number: 80
 EOF
+```
 
-# Step 5: Check ALB creation and test
+**Step 5: Verify ALB creation and test**
+```bash
 kubectl get ingress nginx-ingress
 kubectl get ingress nginx-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 
