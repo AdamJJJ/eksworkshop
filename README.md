@@ -154,8 +154,9 @@ terraform apply
 
 1. **Configure kubectl for managed node group cluster:**
 ```bash
-aws eks update-kubeconfig --region <your-region> --name eks-workshop-cluster
+aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-cluster
 ```
+> **Note:** Change `eu-central-1` to your region if you modified it in `terraform.tfvars`
 
 2. **Verify connection:**
 ```bash
@@ -169,17 +170,19 @@ kubectl create deployment nginx-managed --image=nginx
 kubectl expose deployment nginx-managed --port=80 --type=LoadBalancer --name=nginx-managed-service
 ```
 
-4. **Check the service:**
+4. **Check the service and get the LoadBalancer URL:**
 ```bash
 kubectl get service nginx-managed-service
 ```
+> **Note:** Wait 3-5 minutes for the LoadBalancer to be ready, then copy the EXTERNAL-IP and browse to it in your web browser to see the nginx welcome page.
 
 ### Step 2: Test EKS Auto Mode Cluster
 
 1. **Switch to Auto Mode cluster:**
 ```bash
-aws eks update-kubeconfig --region <your-region> --name eks-workshop-auto-cluster
+aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
 ```
+> **Note:** Change `eu-central-1` to your region if you modified it in `terraform.tfvars`
 
 2. **Initially no nodes exist:**
 ```bash
