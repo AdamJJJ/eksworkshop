@@ -8,7 +8,7 @@
 > 
 > For production deployments, please review AWS EKS best practices and implement additional security measures, monitoring, backup strategies, and high availability configurations.
 
-This workshop will guide you through building a complete Amazon EKS (Elastic Kubernetes Service) infrastructure from scratch. We'll deploy in three phases to help you understand each component and how they work together.
+This workshop will guide you through building a complete Amazon EKS (Elastic Kubernetes Service) infrastructure from scratch. We'll deploy in four phases to help you understand each component and how they work together.
 
 ## What You'll Build
 
