@@ -395,6 +395,8 @@ spec:
   scheme: internet-facing
 EOF
 ```
+> **Expected output:** `ingressclassparams.eks.amazonaws.com/alb created`
+> **Explanation:** IngressClassParams is an Auto Mode-specific resource that defines AWS-specific ALB configuration. The `internet-facing` scheme makes the ALB accessible from the internet.
 
 **Step 2: Create IngressClass**
 ```bash
@@ -413,12 +415,15 @@ spec:
     name: alb
 EOF
 ```
+> **Expected output:** `ingressclass.networking.k8s.io/alb created`
+> **Explanation:** This tells Kubernetes to use Auto Mode's built-in ALB controller (`eks.amazonaws.com/alb`) instead of the traditional AWS Load Balancer Controller. The annotation makes this the default ingress class.
 
 **Step 3: Create service for nginx deployment**
 ```bash
 kubectl expose deployment nginx-automode --port=80 --name=nginx-alb-service
 ```
-> **Note:** We create a separate service for ALB testing (different from the NLB service created earlier).
+> **Expected output:** `service/nginx-alb-service exposed`
+> **Note:** We create a separate ClusterIP service for ALB testing (different from the NLB service created earlier). ALB routes traffic to this internal service.
 
 **Step 4: Create Ingress to trigger ALB**
 ```bash
@@ -441,15 +446,31 @@ spec:
                   number: 80
 EOF
 ```
+> **Expected output:** `ingress.networking.k8s.io/nginx-ingress created`
+> **Explanation:** This Ingress resource triggers Auto Mode to automatically create an ALB. The ALB will route all HTTP traffic (`path: /`) to our nginx service on port 80.
 
 **Step 5: Verify ALB creation and test**
 ```bash
 kubectl get ingress nginx-ingress
 kubectl get ingress nginx-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 
-# Test the ALB endpoint (wait 3-5 minutes for ALB to be ready)
-curl -I http://$(kubectl get ingress nginx-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+# Get the ALB hostname and test it (wait 3-5 minutes for ALB to be ready)
+ALB_HOSTNAME=$(kubectl get ingress nginx-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+curl -I http://$ALB_HOSTNAME
 ```
+> **Expected output:**
+> ```
+> # First command shows ingress status
+> NAME            CLASS   HOSTS   ADDRESS                                                                     PORTS   AGE
+> nginx-ingress   alb     *       k8s-default-nginxing-a1935d0981-1215539605.eu-central-1.elb.amazonaws.com   80      2m
+> 
+> # Second command shows just the hostname
+> k8s-default-nginxing-a1935d0981-1215539605.eu-central-1.elb.amazonaws.com
+> 
+> # Third command should return HTTP 200 OK
+> HTTP/1.1 200 OK
+> ```
+> **Explanation:** Auto Mode automatically created an ALB, configured target groups, and set up health checks. You can also verify in AWS Console: EC2 → Load Balancers → Application Load Balancers.
 
 **Expected Results:**
 - ✅ ALB automatically created in AWS (visible in EC2 Console → Load Balancers)
