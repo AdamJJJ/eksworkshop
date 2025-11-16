@@ -98,7 +98,7 @@ terraform apply -target=aws_vpc.main -target=aws_subnet.public -target=aws_subne
 ```
 Type `yes` when prompted to confirm.
 
-### ✅ Verify VPC and S3 Deployment in AWS Console:
+### ✅ Verify VPC Deployment in AWS Console:
 
 1. **Go to AWS Console → VPC Dashboard**
 2. **Check Your VPCs**: You should see `eks-workshop-vpc`
@@ -108,11 +108,6 @@ Type `yes` when prompted to confirm.
 4. **Check Internet Gateways**: You should see `eks-workshop-igw`
 5. **Check NAT Gateways**: You should see `eks-workshop-nat-gateway` in a public subnet
 6. **Check Route Tables**: You should see public and private route tables with proper routes
-7. **Go to AWS Console → S3**
-8. **Check S3 Bucket**: You should see `eks-workshop-assets-[random]` bucket with:
-   - Public read access configured
-   - `workshop-image.jpg` uploaded
-   - Versioning enabled
 
 ### What Gets Created:
 - **VPC**: Your isolated network environment (10.0.0.0/16)
@@ -122,35 +117,27 @@ Type `yes` when prompted to confirm.
 - **NAT Gateway**: Allows private subnet resources to reach internet for updates
 - **Route Tables**: Define how traffic flows between subnets
 - **Security Groups**: Firewall rules for EKS cluster and nodes
-- **S3 Bucket**: Stores static assets with unique name `eks-workshop-assets-[random-id]`
-- **Workshop Image**: Sample PNG file uploaded to S3 for web application testing
-- **IAM Role**: For secure S3 access from Kubernetes pods (IRSA pattern)
-- **IAM Policy**: Grants read-only access to the workshop S3 bucket
 
 **What's Next:** With networking in place, we'll create the EKS control plane.
 
 ---
 
-## Phase 2: Deploy EKS Cluster
+## Phase 2: Deploy EKS Cluster and Node Groups
 
-**What we're building:** The Kubernetes control plane that manages your cluster.
+**What we're building:** The Kubernetes control plane and worker nodes in one step.
 
 **Why we use modules:** In real-world scenarios, you'll use Terraform modules instead of writing individual resources. Modules encapsulate best practices and handle complexity for you.
 
 ### Steps:
 
-1. In `eks.tf`, uncomment the EKS cluster section:
-   - Remove `/*` at the beginning of "PHASE 2: EKS CLUSTER" section
-   - Remove `*/` at the end of that section
-
-2. In `outputs.tf`, uncomment the EKS outputs section:
-   - Remove `/*` and `*/` around "EKS OUTPUTS" section
-
-3. Deploy the EKS cluster:
+1. check `eks.tf`,and apply the change
 ```bash
 terraform init
 terraform apply
 ```
+
+> **Note:** EKS cluster creation typically takes 10-15 minutes to complete.
+> **Note:** Managed node group creation typically takes around 3 minutes to complete.
 
 ### ✅ Verify EKS Cluster Deployment in AWS Console:
 
@@ -158,77 +145,41 @@ terraform apply
 2. **Check Cluster Status**: You should see `eks-workshop-cluster` with status "Active"
 3. **Check Access Tab**: Your IAM user should have cluster admin access automatically configured
 4. **Check Cluster Details**:
-   - Version: 1.33
+   - Version: 1.34
    - Endpoint: Should show the API server URL
    - Networking: Should show your VPC and private subnets
-4. **Check IAM Roles**: Go to IAM → Roles, look for `eks-workshop-cluster-cluster`
-5. **Check CloudWatch**: Go to CloudWatch → Log groups, look for `/aws/eks/eks-workshop-cluster/cluster`
-
-### What the Module Creates Behind the Scenes:
-- **EKS Cluster**: Kubernetes version 1.33 control plane
-- **IAM Role**: With AmazonEKSClusterPolicy attached
-- **Security Groups**: For cluster communication
-- **CloudWatch Logs**: For monitoring and troubleshooting
-- **OIDC Provider**: For service account authentication
-- **API Endpoint**: How you'll connect with kubectl
-
-**What's Next:** The cluster is ready, but we need worker nodes to run applications.
-
----
-
-## Phase 3: Deploy Managed Node Group
-
-**What we're building:** Amazon EC2 instances that will run your Kubernetes workloads.
-
-**Why modules are better:** The module automatically creates all required IAM roles, policies, and configurations following AWS best practices.
-
-### Steps:
-
-1. In `eks.tf`, the node group is already configured within the main EKS module
-   - No need to uncomment separate sections - it's built-in now
-
-2. In `outputs.tf`, uncomment the node group outputs section:
-   - Remove `/*` and `*/` around "NODE GROUP OUTPUTS" section
-
-3. Deploy the worker nodes:
-```bash
-terraform init
-terraform apply
-```
-
-### ✅ Verify Node Group Deployment in AWS Console:
-
-1. **Go to AWS Console → EKS → Clusters → eks-workshop-cluster**
-2. **Check Compute Tab**: You should see `eks-workshop-nodes` node group with status "Active"
-3. **Check Node Group Details**:
+5. **Check Compute Tab**: You should see `eks-workshop-nodes` node group with status "Active"
+6. **Check Node Group Details**:
    - Desired size: 2
    - Instance type: t3.medium
    - Subnets: Should show your private subnets
-4. **Check EC2 Instances**: Go to EC2 → Instances, you should see 2 running instances:
+7. **Check EC2 Instances**: Go to EC2 → Instances, you should see 2 running instances:
    - Names like `eks-workshop-nodes-xxxxx`
    - Instance type: t3.medium
    - Located in private subnets (different AZs)
-5. **Check Auto Scaling Groups**: Go to EC2 → Auto Scaling Groups, look for `eks-workshop-nodes-xxxxx`
-6. **Check IAM Roles**: Go to IAM → Roles, look for `eks-workshop-eks-nodes-role`
+8. **Check IAM Roles**: Go to IAM → Roles, look for cluster and node roles
+9. **Check CloudWatch**: Go to CloudWatch → Log groups, look for `/aws/eks/eks-workshop-cluster/cluster`
 
 ### What the Module Creates Behind the Scenes:
+- **EKS Cluster**: Kubernetes version 1.34 control plane
 - **Managed Node Group**: 2 EC2 instances (1 per availability zone)
-- **IAM Role**: With these policies automatically attached:
-  - AmazonEKSWorkerNodePolicy
-  - AmazonEKS_CNI_Policy
-  - AmazonEC2ContainerRegistryReadOnly
+- **IAM Roles**: With required policies automatically attached
+- **Security Groups**: For cluster and node communication
+- **CloudWatch Logs**: For monitoring and troubleshooting
+- **OIDC Provider**: For service account authentication
 - **Launch Template**: Defines node configuration
 - **Auto Scaling Group**: Automatically replaces unhealthy nodes
-- **Security Groups**: For node-to-node and node-to-cluster communication
 
 **Instance Details:**
 - Type: t3.medium (2 vCPU, 4GB RAM)
 - AMI: Amazon Linux 2 optimized for EKS (automatically selected)
 - Placement: Private subnets for security
 
+**What's Next:** The cluster and nodes are ready for application deployment.
+
 ---
 
-## Phase 4: Deploy and Test Applications
+## Phase 3: Deploy and Test Applications
 
 **What we're doing:** Testing your EKS cluster with real applications and AWS service integration.
 
@@ -261,15 +212,15 @@ kubectl expose deployment nginx-web --port=80 --type=LoadBalancer --name=nginx-s
 
 > **Note:** This creates a Classic Load Balancer (CLB). For Application Load Balancer (ALB), you would use Ingress resources with the AWS Load Balancer Controller. We're using CLB for simplicity in this workshop.
 
-3. Wait for LoadBalancer to be created (takes 2-3 minutes):
+3. Check the service status:
 ```bash
-kubectl get service nginx-service --watch
+kubectl get service nginx-service
 ```
-Wait until you see an EXTERNAL-IP (not `<pending>`).
 
-4. **Check AWS Console**: 
-   - Go to EC2 → Load Balancers
+4. **Check AWS Console for LoadBalancer**: 
+   - Go to **EC2 → Load Balancers**
    - You should see a new **Classic Load Balancer** being created
+   - Wait until the state shows "InService" (takes 2-3 minutes)
    - Note the DNS name - this is your public endpoint
 
 5. Test your application:
@@ -280,160 +231,6 @@ kubectl get service nginx-service
 ```
 
 You should see the nginx welcome page!
-
-### Step 3: Create Custom HTML Application
-
-**What we're building:** A custom webpage using the existing nginx deployment.
-
-1. **Get the S3 bucket name from Terraform outputs**:
-```bash
-terraform output s3_bucket_name
-terraform output workshop_image_url
-```
-
-2. **Create your custom HTML file** using the `sample-webpage.html` template:
-   - Copy `sample-webpage.html` to `index.html`
-   - Replace `PROJECT_NAME-assets-RANDOM_ID` with your actual bucket name from step 1
-   - Replace `REGION` with your AWS region (eu-central-1)
-
-3. **Update the existing nginx deployment with your custom HTML**:
-```bash
-# Create ConfigMap with your custom HTML
-kubectl create configmap html-content --from-file=index.html
-
-# Update the existing nginx deployment to use the ConfigMap
-kubectl patch deployment nginx-web -p '{
-  "spec": {
-    "template": {
-      "spec": {
-        "containers": [{
-          "name": "nginx",
-          "image": "nginx",
-          "volumeMounts": [{
-            "name": "html-content",
-            "mountPath": "/usr/share/nginx/html"
-          }]
-        }],
-        "volumes": [{
-          "name": "html-content",
-          "configMap": {
-            "name": "html-content"
-          }
-        }]
-      }
-    }
-  }
-}'
-```
-
-4. **Test your updated application**:
-```bash
-kubectl get service nginx-service
-# Open the EXTERNAL-IP in browser - you should see your custom HTML with S3 integration
-```
-
-### Step 4: Demonstrate IRSA (IAM Roles for Service Accounts)
-
-**What we're learning:** How to securely access AWS services from Kubernetes pods using IRSA.
-
-1. **Create Kubernetes Service Account with IRSA annotation**:
-```bash
-kubectl create serviceaccount s3-access-sa
-kubectl annotate serviceaccount s3-access-sa eks.amazonaws.com/role-arn=$(terraform output -raw s3_access_role_arn)
-```
-
-2. **Update the existing nginx deployment to use the Service Account**:
-```bash
-kubectl patch deployment nginx-web -p '{"spec":{"template":{"spec":{"serviceAccountName":"s3-access-sa"}}}}'
-```
-
-3. **Verify the deployment is using IRSA**:
-```bash
-# Check that pods are using the service account
-kubectl get pods -l app=nginx-web -o jsonpath='{.items[0].spec.serviceAccountName}'
-
-# Test S3 access from within the nginx pod
-kubectl exec -it deployment/nginx-web -- /bin/bash
-```
-
-4. **Inside the nginx pod, test S3 access**:
-```bash
-# Install AWS CLI (if not present)
-apt update && apt install -y awscli
-
-# List all buckets (should work with IRSA)
-aws s3 ls
-
-# List your workshop bucket contents (replace with your actual bucket name)
-aws s3 ls s3://YOUR-BUCKET-NAME/
-
-exit
-```
-
-**Note:** Get your bucket name first with `terraform output s3_bucket_name` before running the pod commands.
-
-**What this demonstrates:**
-- ✅ **Secure access**: No AWS credentials stored in pods
-- ✅ **Least privilege**: Only read access to specific S3 bucket
-- ✅ **Automatic**: AWS SDK automatically uses IRSA credentials
-- ❌ **Write blocked**: Upload fails due to limited permissions
-
-### What You've Accomplished
-
-✅ **VPC with proper networking** (public/private subnets, NAT gateway)  
-✅ **EKS cluster** running Kubernetes 1.33  
-✅ **Worker nodes** distributed across availability zones  
-✅ **LoadBalancer integration** with AWS Classic Load Balancer  
-✅ **Custom web application** with ConfigMaps using existing nginx deployment  
-✅ **S3 integration** for static content hosting (private bucket with proper security)  
-✅ **Real-world application deployment** using kubectl
-
-**What's Next:** Your EKS cluster is fully functional! You can now deploy more complex applications, set up monitoring, implement CI/CD pipelines, or explore advanced Kubernetes features.
-
----
-
-## Troubleshooting
-
-**Common Issues and Solutions:**
-
-### Phase 1 - VPC Issues:
-- **Error: "availability zone not supported"**: Change region in terraform.tfvars
-- **Error: "insufficient capacity"**: Try different region or wait and retry
-
-### Phase 2 - EKS Cluster Issues:
-- **Cluster stuck in "Creating"**: Normal, takes 15-20 minutes
-- **Error: "AccessDenied"**: Check AWS credentials and permissions
-- **Error: "subnet not found"**: Ensure Phase 1 completed successfully
-
-### Phase 3 - Node Group Issues:
-- **Nodes not joining**: Check security groups and subnet routing
-- **"NodeCreationFailure"**: Check EC2 service limits in your region
-- **Nodes in "NotReady"**: Wait 5-10 minutes for initialization
-
-### Phase 4 - Application Issues:
-- **LoadBalancer stuck in "Pending"**: Check AWS Load Balancer Controller installation
-- **S3 access denied**: Verify bucket policy and bucket name in YAML
-- **Can't access application**: Check security groups allow HTTP traffic
-
-### General AWS Issues:
-- **Region mismatch**: Ensure AWS CLI and terraform.tfvars use same region
-- **Permission errors**: Verify your AWS user has EKS, EC2, VPC, and S3 permissions
-- **Resource limits**: Some regions have limits on EKS clusters or EC2 instances
-
-**Getting Help:**
-- Check CloudWatch logs for EKS cluster issues
-- Use `kubectl describe` commands for Kubernetes troubleshooting
-- Review Terraform state with `terraform show`
-- Check AWS service health dashboard for regional issues
-
-## Cleanup
-
-To avoid ongoing charges, destroy resources when done:
-```bash
-terraform destroy
-```
-
-**Important:** This will delete everything created in this workshop.
 
 ---
 
