@@ -14,9 +14,12 @@ This workshop will guide you through building a complete Amazon EKS (Elastic Kub
 
 By the end of this workshop, you'll have:
 - A VPC with public and private subnets across 2 availability zones
-- An EKS cluster running Kubernetes version 1.34
-- A managed node group with worker nodes to run your applications
+- **Two EKS clusters** running Kubernetes version 1.34:
+  - **Traditional EKS cluster** with managed node groups
+  - **EKS Auto Mode cluster** with automatic compute management
+- A managed node group with worker nodes for the traditional cluster
 - All necessary networking, security, and IAM configurations
+- Hands-on comparison between traditional EKS and Auto Mode approaches
 
 ## Prerequisites
 
@@ -122,170 +125,166 @@ Type `yes` when prompted to confirm.
 
 ---
 
-## Phase 2: Deploy EKS Cluster and Node Groups
+## Phase 2: Deploy EKS Clusters (Traditional + Auto Mode)
 
-**What we're building:** The Kubernetes control plane and worker nodes in one step.
+**What we're building:** Two different types of EKS clusters to compare traditional management vs. Auto Mode.
 
-**Why we use modules:** In real-world scenarios, you'll use Terraform modules instead of writing individual resources. Modules encapsulate best practices and handle complexity for you.
+**Why deploy both:** This allows you to understand the differences between traditional EKS (where you manage node groups) and EKS Auto Mode (where AWS manages compute automatically).
 
 ### Steps:
 
-1. check `eks.tf`,and apply the change
+1. **Uncomment both EKS configurations** in `eks.tf` and `eks-automode.tf`
+
+2. **Initialize and apply:**
 ```bash
 terraform init
 terraform apply
 ```
 
-> **Note:** EKS cluster creation typically takes 10-15 minutes to complete.
-> **Note:** Managed node group creation typically takes around 3 minutes to complete.
+> **Note:** Both EKS clusters creation typically takes 10-15 minutes to complete.
+> **Note:** Only the traditional cluster will have managed node groups - Auto Mode provisions compute on-demand.
 
-### ✅ Verify EKS Cluster Deployment in AWS Console:
+### ✅ Verify Both EKS Clusters in AWS Console:
 
+**Traditional EKS Cluster (`eks-workshop-cluster`):**
 1. **Go to AWS Console → EKS → Clusters**
 2. **Check Cluster Status**: You should see `eks-workshop-cluster` with status "Active"
-3. **Check Access Tab**: Your IAM user should have cluster admin access automatically configured
-4. **Check Cluster Details**:
-   - Version: 1.34
-   - Endpoint: Should show the API server URL
-   - Networking: Should show your VPC and private subnets
-5. **Check Compute Tab**: You should see `eks-workshop-nodes` node group with status "Active"
-6. **Check Node Group Details**:
-   - Desired size: 2
-   - Instance type: t3.medium
-   - Subnets: Should show your private subnets
-7. **Check EC2 Instances**: Go to EC2 → Instances, you should see 2 running instances:
-   - Names like `eks-workshop-nodes-xxxxx`
-   - Instance type: t3.medium
-   - Located in private subnets (different AZs)
-8. **Check IAM Roles**: Go to IAM → Roles, look for cluster and node roles
-9. **Check CloudWatch**: Go to CloudWatch → Log groups, look for `/aws/eks/eks-workshop-cluster/cluster`
+3. **Check Compute Tab**: You should see `eks-workshop-nodes` node group with status "Active"
+4. **Check EC2 Instances**: Go to EC2 → Instances, you should see 2 running instances
 
-### What the Module Creates Behind the Scenes:
+**EKS Auto Mode Cluster (`eks-workshop-auto-cluster`):**
+1. **Check Cluster Status**: You should see `eks-workshop-auto-cluster` with status "Active"
+2. **Check Compute Tab**: You should see "Auto Mode" enabled with node pools
+3. **Check EC2 Instances**: Initially no instances (Auto Mode creates them on-demand)
+
+### What Gets Created:
+
+**Traditional EKS Cluster:**
 - **EKS Cluster**: Kubernetes version 1.34 control plane
-- **Managed Node Group**: 2 EC2 instances (1 per availability zone)
+- **Managed Node Group**: 2 EC2 instances (t3.medium)
 - **IAM Roles**: With required policies automatically attached
 - **Security Groups**: For cluster and node communication
-- **CloudWatch Logs**: For monitoring and troubleshooting
-- **OIDC Provider**: For service account authentication
-- **Launch Template**: Defines node configuration
-- **Auto Scaling Group**: Automatically replaces unhealthy nodes
 
-**Instance Details:**
-- Type: t3.medium (2 vCPU, 4GB RAM)
-- AMI: Amazon Linux 2 optimized for EKS (automatically selected)
-- Placement: Private subnets for security
+**EKS Auto Mode Cluster:**
+- **EKS Cluster**: Kubernetes version 1.34 control plane with Auto Mode enabled
+- **Node Pools**: `general-purpose` and `system` pools (no pre-provisioned nodes)
+- **Enhanced IAM Policies**: Additional policies for compute, storage, networking, and load balancing
+- **Automatic Provisioning**: Nodes created only when workloads are deployed
 
-**What's Next:** The cluster and nodes are ready for application deployment.
+**Key Differences:**
+- **Traditional**: You manage node groups, scaling, instance types
+- **Auto Mode**: AWS automatically provisions optimal compute based on workload requirements
+
+**What's Next:** Test both clusters to see the operational differences.
 
 ---
 
-## Phase 3: Deploy and Test Applications
+## Phase 3: Deploy and Test Applications on Both Clusters
 
-**What we're doing:** Testing your EKS cluster with real applications and AWS service integration.
+**What we're doing:** Testing both EKS clusters with real applications to compare traditional vs. Auto Mode operations.
 
-### Step 1: Configure kubectl and Connect to Cluster
+### Step 1: Test Traditional EKS Cluster
 
-1. Configure kubectl to connect to your cluster:
+1. **Configure kubectl for traditional cluster:**
 ```bash
-aws eks update-kubeconfig --region <your-region> --name <cluster-name> 
+aws eks update-kubeconfig --region <your-region> --name eks-workshop-cluster
 ```
 
-2. Verify connection:
+2. **Verify connection:**
 ```bash
 kubectl get nodes
 ```
 You should see 2 nodes in "Ready" status.
 
-### Step 2: Deploy Simple Web Application
-
-**What we're testing:** Basic Kubernetes deployment and LoadBalancer service creation.
-
-1. Deploy a simple nginx web server:
+3. **Deploy nginx application:**
 ```bash
-kubectl create deployment nginx-web --image=nginx
+kubectl create deployment nginx-traditional --image=nginx
+kubectl expose deployment nginx-traditional --port=80 --type=LoadBalancer --name=nginx-traditional-service
 ```
 
-2. Expose it with a LoadBalancer (creates AWS Classic Load Balancer):
+4. **Check the service:**
 ```bash
-kubectl expose deployment nginx-web --port=80 --type=LoadBalancer --name=nginx-service
+kubectl get service nginx-traditional-service
 ```
 
-> **Note:** This creates a Classic Load Balancer (CLB). For Application Load Balancer (ALB), you would use Ingress resources with the AWS Load Balancer Controller. We're using CLB for simplicity in this workshop.
+### Step 2: Test EKS Auto Mode Cluster
 
-3. Check the service status:
+1. **Switch to Auto Mode cluster:**
 ```bash
-kubectl get service nginx-service
+aws eks update-kubeconfig --region <your-region> --name eks-workshop-auto-cluster
 ```
 
-4. **Check AWS Console for LoadBalancer**: 
-   - Go to **EC2 → Load Balancers**
-   - You should see a new **Classic Load Balancer** being created
-   - Wait until the state shows "InService" (takes 2-3 minutes)
-   - Note the DNS name - this is your public endpoint
-
-5. Test your application:
+2. **Initially no nodes exist:**
 ```bash
-# Get the LoadBalancer URL
-kubectl get service nginx-service
-# Copy the EXTERNAL-IP and open it in your browser
+kubectl get nodes
+# Should show: No resources found
 ```
 
-You should see the nginx welcome page!
+3. **Deploy nginx to trigger node provisioning:**
+```bash
+kubectl create deployment nginx-automode --image=nginx
+kubectl expose deployment nginx-automode --port=80 --type=LoadBalancer --name=nginx-automode-service
+```
+
+4. **Watch Auto Mode in action:**
+```bash
+# Watch nodes being automatically created (takes 2-3 minutes)
+kubectl get nodes -w
+
+# Check Auto Mode node pools
+kubectl get nodepools -A
+
+# Verify pod is running
+kubectl get pods -o wide
+```
+
+### Step 3: Compare Both Clusters
+
+**Traditional EKS:**
+- ✅ Nodes pre-provisioned and always running
+- ✅ Predictable capacity and performance
+- ❌ Paying for unused capacity
+- ❌ Manual node group management required
+
+**EKS Auto Mode:**
+- ✅ Nodes created only when needed
+- ✅ Optimal instance types selected automatically
+- ✅ No manual node management
+- ❌ Cold start delay for first workloads
+
+### Step 4: Test Auto Scaling (Auto Mode)
+
+```bash
+# Scale up to trigger more nodes
+kubectl scale deployment nginx-automode --replicas=5
+
+# Watch new nodes provision automatically
+kubectl get nodes
+kubectl get pods -o wide
+```
+
+**What You'll Observe:**
+- Auto Mode automatically provisions additional nodes as needed
+- Optimal instance types selected based on workload requirements
+- No manual intervention required for scaling
 
 ---
 
-## Phase 4: Understanding EKS Auto Mode
+## Phase 4: Advanced Auto Mode Features and Storage Testing
 
-**What is EKS Auto Mode:** Amazon EKS Auto Mode streamlines Kubernetes cluster management by automatically provisioning infrastructure, selecting optimal compute instances, dynamically scaling resources, and continually optimizing for costs while handling OS patching and AWS security integration.
+**What we're exploring:** Advanced Auto Mode capabilities including automatic storage provisioning, ingress management, and system-level features.
 
-**Key Benefits:**
-- **Fully Automated Operations**: No need for specialized Kubernetes infrastructure knowledge
-- **Automatic Compute Management**: Launches EC2 instances with Bottlerocket OS based on workload requirements
-- **Built-in Best Practices**: Clusters are production-ready with AWS security and networking configurations
-- **Reduced Operational Overhead**: AWS manages node lifecycle, upgrades, and security patches
-- **Cost Optimization**: Automatically selects and scales optimal instance types
+**Why this matters:** Understanding how Auto Mode handles complex scenarios that traditionally required manual configuration.
 
-**How It Works:**
-EKS Auto Mode deploys essential controllers for compute, networking, and storage in AWS-managed accounts while launching EC2 instances and EBS volumes in your account. Components that traditionally ran as Kubernetes DaemonSets (service discovery, load balancing, pod networking) now run as AWS-managed system processes.
+### Test 1: Automatic EBS Storage Provisioning
 
-**Shared Responsibility Evolution:**
-AWS now handles the data plane portion including EC2 instance configuration, patching, and health management. You focus only on VPC configuration, cluster settings, and your application containers.
+**What we're testing:** Auto Mode's built-in EBS CSI driver functionality.
 
-**Compare the Clusters:**
-Your workshop deployed both traditional EKS (`eks-workshop-cluster`) and Auto Mode (`eks-workshop-auto-cluster`). The Auto Mode cluster requires no managed node groups - AWS automatically provisions compute as needed when you deploy applications.
-
-**Learn More:**
-🔗 [Under the Hood: Amazon EKS Auto Mode](https://aws.amazon.com/blogs/containers/under-the-hood-amazon-eks-auto-mode/)
-
-### Testing Auto Mode Capabilities
-
-**Test 1: Node Auto-Provisioning**
 ```bash
-# Connect to Auto Mode cluster
-aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
+# Ensure you're connected to Auto Mode cluster
+aws eks update-kubeconfig --region <your-region> --name eks-workshop-auto-cluster
 
-# Initially no nodes exist
-kubectl get nodes
-# Should show: No resources found
-
-# Deploy a simple application to trigger node provisioning
-kubectl run simple-test --image=nginx
-
-# Watch node being automatically created (takes 2-3 minutes)
-kubectl get nodes -w
-
-# Verify pod is running on the auto-provisioned node
-kubectl get pods simple-test -o wide
-```
-
-**Expected Results:**
-- Node appears automatically when pod needs scheduling
-- Node runs Bottlerocket OS with Kubernetes v1.34.0
-- Pod transitions from Pending → Running once node is ready
-
-**Test 2: Storage (EBS CSI) Auto-Provisioning**
-```bash
-# Create proper EBS storage class (Auto Mode provides EBS CSI functionality)
+# Create storage class (Auto Mode provides EBS CSI automatically)
 kubectl apply -f - <<EOF
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -331,21 +330,21 @@ spec:
       claimName: auto-pvc
 EOF
 
-# Verify storage provisioning
+# Verify automatic provisioning
 kubectl get pvc auto-pvc
 kubectl get pods storage-test
 kubectl get pv
 ```
 
 **Expected Results:**
-- PVC Status: Bound
-- Pod Status: Running  
-- EBS Volume: Automatically provisioned with gp3, encrypted
-- No visible EBS CSI driver pods (AWS-managed)
+- ✅ PVC Status: Bound (automatically)
+- ✅ EBS Volume: Created with gp3, encrypted
+- ✅ No manual EBS CSI driver installation needed
 
-**Test 3: Auto Mode Components Verification**
+### Test 2: Auto Mode System Components
+
 ```bash
-# Check Auto Mode CRDs
+# Check Auto Mode CRDs (Custom Resource Definitions)
 kubectl get crd | grep eks.amazonaws.com
 
 # Check Auto Mode node pools
@@ -353,141 +352,102 @@ kubectl get nodepools -A
 
 # Verify storage classes
 kubectl get storageclass
-```
 
-**Expected Output:**
-```
-# CRDs
-cninodes.eks.amazonaws.com                      2025-11-16T21:39:32Z
-ingressclassparams.eks.amazonaws.com            2025-11-16T21:39:27Z
-nodeclasses.eks.amazonaws.com                   2025-11-16T21:39:40Z
-nodediagnostics.eks.amazonaws.com               2025-11-16T21:39:41Z
-targetgroupbindings.eks.amazonaws.com           2025-11-16T21:39:27Z
-
-# Node Pools
-NAME              NODECLASS   NODES   READY   AGE
-general-purpose   default     1       True    15m
-system            default     0       True    15m
-
-# Storage Classes
-NAME                    PROVISIONER               RECLAIM POLICY
-auto-ebs-sc (default)   ebs.csi.eks.amazonaws.com Delete
-gp2                     kubernetes.io/aws-ebs     Delete
+# Check for AWS-managed components (should be minimal)
+kubectl get pods -A | grep -E "(ebs-csi|aws-load-balancer)"
 ```
 
 **Key Insights:**
-- **Hidden Infrastructure**: EBS CSI, Load Balancer Controller run as AWS-managed services
-- **On-Demand Provisioning**: Nodes and storage created only when needed
-- **Zero Operational Overhead**: No manual driver/controller installation required
+- **Hidden Infrastructure**: EBS CSI, networking components run as AWS-managed services
+- **Minimal Cluster Overhead**: Fewer system pods compared to traditional EKS
+- **Automatic CRD Management**: Auto Mode CRDs appear automatically
 
-**Test 4: ALB Ingress (Load Balancer) Auto-Provisioning**
+### Test 3: Compare System Overhead
+
+**Traditional EKS Cluster:**
 ```bash
-# Step 1: Create IngressClassParams (AWS-specific ALB configuration)
-kubectl apply -f - <<EOF
-apiVersion: eks.amazonaws.com/v1
-kind: IngressClassParams
-metadata:
-  name: alb
-spec:
-  scheme: internet-facing
-EOF
+# Switch to traditional cluster
+aws eks update-kubeconfig --region <your-region> --name eks-workshop-cluster
 
-# Step 2: Create IngressClass (tells EKS Auto Mode to handle ALB)
-kubectl apply -f - <<EOF
-apiVersion: networking.k8s.io/v1
-kind: IngressClass
-metadata:
-  name: alb
-  annotations:
-    ingressclass.kubernetes.io/is-default-class: "true"
-spec:
-  controller: eks.amazonaws.com/alb
-  parameters:
-    apiGroup: eks.amazonaws.com
-    kind: IngressClassParams
-    name: alb
-EOF
-
-# Step 3: Create Ingress (triggers ALB creation)
-kubectl apply -f - <<EOF
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: web-app-ingress
-spec:
-  ingressClassName: alb
-  rules:
-    - http:
-        paths:
-          - path: /*
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: web-app
-                port:
-                  number: 80
-EOF
-
-# Step 4: Check ALB creation and test
-kubectl get ingress web-app-ingress
-kubectl get ingress web-app-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-
-# Test the ALB endpoint
-curl -I http://$(kubectl get ingress web-app-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+# Count system pods
+kubectl get pods -A | wc -l
+kubectl get pods -n kube-system
 ```
 
-**Expected Results:**
-- ALB automatically created in AWS (visible in EC2 Console → Load Balancers)
-- Ingress shows ADDRESS with ALB hostname
-- HTTP 200 response from nginx application
-- No manual AWS Load Balancer Controller installation needed
-
-**Key Differences from Traditional EKS:**
-- Uses `eks.amazonaws.com/alb` controller (not `ingress.k8s.aws/alb`)
-- Requires `IngressClassParams` for AWS-specific configuration
-- Auto Mode handles all ALB provisioning automatically
-
-### Testing Auto Mode Capabilities
-
-**Step 1: Connect to Auto Mode Cluster**
+**Auto Mode Cluster:**
 ```bash
+# Switch back to Auto Mode
 aws eks update-kubeconfig --region <your-region> --name eks-workshop-auto-cluster
-kubectl get nodes
-```
-Initially, you should see no nodes - Auto Mode provisions them on-demand.
 
-**Step 2: Deploy Test Application**
-```bash
-kubectl create deployment auto-test --image=nginx --replicas=3
-kubectl expose deployment auto-test --port=80 --type=LoadBalancer
+# Count system pods
+kubectl get pods -A | wc -l
+kubectl get pods -n kube-system
 ```
 
-**Step 3: Watch Auto Mode in Action**
+**Comparison Results:**
+- **Traditional**: More system pods (aws-node, ebs-csi-controller, etc.)
+- **Auto Mode**: Fewer system pods (AWS manages most components externally)
+
+### Test 4: Cost and Resource Optimization
+
 ```bash
-# Watch nodes being automatically created
-kubectl get nodes -w
+# Deploy workload with specific resource requirements
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-test
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: resource-test
+  template:
+    metadata:
+      labels:
+        app: resource-test
+    spec:
+      containers:
+      - name: app
+        image: nginx
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+EOF
 
-# Check Auto Mode node pools
-kubectl get nodepools -A
-
-# Verify pods are scheduled
-kubectl get pods -o wide
-```
-
-**Step 4: Test Auto Scaling**
-```bash
-# Scale up to trigger more nodes
-kubectl scale deployment auto-test --replicas=10
-
-# Watch new nodes provision automatically
-kubectl get nodes
+# Watch Auto Mode select optimal instance types
+kubectl get nodes -o wide
+kubectl describe nodes
 ```
 
 **What You'll Observe:**
-- Nodes appear automatically when pods need scheduling
-- Optimal instance types selected based on workload requirements
-- Load balancer created without additional configuration
-- No manual node group management needed
+- Auto Mode selects instance types based on actual resource requirements
+- Efficient packing of pods across nodes
+- Automatic scaling based on resource utilization
+
+### Key Takeaways
+
+**Auto Mode Advantages:**
+- ✅ **Zero Infrastructure Management**: No node groups, drivers, or controllers to manage
+- ✅ **Automatic Optimization**: Optimal instance selection and resource utilization
+- ✅ **Built-in Best Practices**: Security, networking, and storage configured automatically
+- ✅ **Cost Efficiency**: Pay only for resources actually needed
+
+**When to Use Auto Mode:**
+- New applications without legacy constraints
+- Teams wanting to focus on applications, not infrastructure
+- Cost-sensitive workloads with variable demand
+- Rapid prototyping and development environments
+
+**When to Use Traditional EKS:**
+- Existing applications with specific node requirements
+- Need for custom AMIs or specialized configurations
+- Predictable workloads requiring consistent capacity
+- Advanced networking or security customizations
 
 ---
 
