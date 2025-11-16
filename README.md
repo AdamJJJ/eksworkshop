@@ -14,7 +14,7 @@ This workshop will guide you through building a complete Amazon EKS (Elastic Kub
 
 By the end of this workshop, you'll have:
 - A VPC with public and private subnets across 2 availability zones
-- An EKS cluster running Kubernetes version 1.33
+- An EKS cluster running Kubernetes version 1.34
 - A managed node group with worker nodes to run your applications
 - All necessary networking, security, and IAM configurations
 
