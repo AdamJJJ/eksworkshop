@@ -221,7 +221,7 @@ kubectl get pods -o wide
 - ✅ Optimal instance types selected automatically
 - ✅ Built-in AWS service integration (EBS CSI, Load Balancer Controller)
 - ✅ No manual node management
-- ❌ Cold start delay for first workloads
+- ✅ Fast node provisioning with Karpenter-like capabilities
 
 ### Step 4: Test Auto Scaling (Auto Mode)
 
@@ -333,72 +333,81 @@ kubectl get pods -A | grep -E "(ebs-csi|aws-load-balancer)"
 - **Minimal Cluster Overhead**: Fewer system pods compared to traditional EKS
 - **Automatic CRD Management**: Auto Mode CRDs appear automatically
 
-### Test 3: Compare System Overhead
+### Test 3: ALB Ingress (Load Balancer) Auto-Provisioning
 
-**Traditional EKS Cluster:**
-```bash
-# Switch to traditional cluster
-aws eks update-kubeconfig --region <your-region> --name eks-workshop-cluster
-
-# Count system pods
-kubectl get pods -A | wc -l
-kubectl get pods -n kube-system
-```
-
-**Auto Mode Cluster:**
-```bash
-# Switch back to Auto Mode
-aws eks update-kubeconfig --region <your-region> --name eks-workshop-auto-cluster
-
-# Count system pods
-kubectl get pods -A | wc -l
-kubectl get pods -n kube-system
-```
-
-**Comparison Results:**
-- **Traditional**: More system pods (aws-node, ebs-csi-controller, etc.)
-- **Auto Mode**: Fewer system pods (AWS manages most components externally)
-
-### Test 4: Cost and Resource Optimization
+**What we're testing:** Auto Mode's built-in AWS Load Balancer Controller functionality.
 
 ```bash
-# Deploy workload with specific resource requirements
+# Ensure you're connected to Auto Mode cluster
+aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
+
+# Step 1: Create IngressClassParams (AWS-specific ALB configuration)
 kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: eks.amazonaws.com/v1
+kind: IngressClassParams
 metadata:
-  name: resource-test
+  name: alb
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: resource-test
-  template:
-    metadata:
-      labels:
-        app: resource-test
-    spec:
-      containers:
-      - name: app
-        image: nginx
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 200m
-            memory: 256Mi
+  scheme: internet-facing
 EOF
 
-# Watch Auto Mode select optimal instance types
-kubectl get nodes -o wide
-kubectl describe nodes
+# Step 2: Create IngressClass (tells EKS Auto Mode to handle ALB)
+kubectl apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: alb
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+spec:
+  controller: eks.amazonaws.com/alb
+  parameters:
+    apiGroup: eks.amazonaws.com
+    kind: IngressClassParams
+    name: alb
+EOF
+
+# Step 3: Create a service for our nginx deployment
+kubectl expose deployment nginx-automode --port=80 --name=nginx-automode-svc
+
+# Step 4: Create Ingress (triggers ALB creation)
+kubectl apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx-automode-svc
+                port:
+                  number: 80
+EOF
+
+# Step 5: Check ALB creation and test
+kubectl get ingress nginx-ingress
+kubectl get ingress nginx-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+# Test the ALB endpoint (wait 3-5 minutes for ALB to be ready)
+curl -I http://$(kubectl get ingress nginx-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 ```
 
-**What You'll Observe:**
-- Auto Mode selects instance types based on actual resource requirements
-- Efficient packing of pods across nodes
-- Automatic scaling based on resource utilization
+**Expected Results:**
+- ✅ ALB automatically created in AWS (visible in EC2 Console → Load Balancers)
+- ✅ Ingress shows ADDRESS with ALB hostname
+- ✅ HTTP 200 response from nginx application
+- ✅ No manual AWS Load Balancer Controller installation needed
+
+**Key Differences from Traditional EKS:**
+- Uses `eks.amazonaws.com/alb` controller (not `ingress.k8s.aws/alb`)
+- Requires `IngressClassParams` for AWS-specific configuration
+- Auto Mode handles all ALB provisioning automatically
 
 ### Key Takeaways
 
@@ -406,7 +415,7 @@ kubectl describe nodes
 - ✅ **Zero Infrastructure Management**: No node groups, drivers, or controllers to manage
 - ✅ **Automatic Optimization**: Optimal instance selection and resource utilization
 - ✅ **Built-in Best Practices**: Security, networking, and storage configured automatically
-- ✅ **Cost Efficiency**: Pay only for resources actually needed
+- ✅ **Built-in AWS Services**: EBS CSI, ALB Controller included automatically
 
 **When to Use Auto Mode:**
 - New applications without legacy constraints
@@ -414,7 +423,7 @@ kubectl describe nodes
 - Cost-sensitive workloads with variable demand
 - Rapid prototyping and development environments
 
-**When to Use Traditional EKS:**
+**When to Use Managed Node Groups:**
 - Existing applications with specific node requirements
 - Need for custom AMIs or specialized configurations
 - Predictable workloads requiring consistent capacity
