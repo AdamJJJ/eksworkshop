@@ -264,19 +264,32 @@ aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
 ```
 
 **Step 2: Check Auto Mode components**
+
+**Step 2a: Check Auto Mode CRDs (Custom Resource Definitions)**
 ```bash
-# Check Auto Mode CRDs (Custom Resource Definitions)
 kubectl get crd | grep eks.amazonaws.com
-
-# Check Auto Mode node pools
-kubectl get nodepools -A
-
-# Verify storage classes
-kubectl get storageclass
-
-# Check for AWS-managed components (should be minimal)
-kubectl get pods -A | grep -E "(ebs-csi|aws-load-balancer)"
 ```
+> **Expected output:** You should see 5 Auto Mode CRDs:
+> - `cninodes.eks.amazonaws.com` - Container Network Interface nodes
+> - `ingressclassparams.eks.amazonaws.com` - ALB ingress parameters  
+> - `nodeclasses.eks.amazonaws.com` - Node class definitions
+> - `nodediagnostics.eks.amazonaws.com` - Node diagnostic information
+> - `targetgroupbindings.eks.amazonaws.com` - ALB target group bindings
+
+**Step 2b: Check Auto Mode node pools**
+```bash
+kubectl get nodepools -A
+```
+> **Expected output:** You should see 2 node pools:
+> - `general-purpose` - For regular workloads (1 node ready)
+> - `system` - For system workloads (0 nodes, created on-demand)
+
+**Step 2c: Verify storage classes**
+```bash
+kubectl get storageclass
+```
+> **Expected output:** You should see `gp2` storage class with `kubernetes.io/aws-ebs` provisioner
+> **Note:** Auto Mode provides EBS CSI functionality without visible driver pods
 
 **Key Insights:**
 - **Hidden Infrastructure**: EBS CSI, networking components run as AWS-managed services
@@ -303,6 +316,8 @@ parameters:
   encrypted: "true"
 EOF
 ```
+> **Expected output:** `storageclass.storage.k8s.io/auto-ebs-sc created`
+> **Explanation:** This creates a custom storage class using gp3 volumes with encryption enabled. The `WaitForFirstConsumer` mode delays volume creation until a pod actually needs it.
 
 **Step 2: Test storage functionality**
 ```bash
@@ -336,6 +351,12 @@ spec:
       claimName: auto-pvc
 EOF
 ```
+> **Expected output:** 
+> ```
+> persistentvolumeclaim/auto-pvc created
+> pod/storage-test created
+> ```
+> **Explanation:** This creates a PVC requesting 1GB of storage and a pod that mounts this storage at `/data`. Auto Mode will automatically provision an EBS volume.
 
 **Step 3: Verify automatic provisioning**
 ```bash
@@ -343,11 +364,21 @@ kubectl get pvc auto-pvc
 kubectl get pods storage-test
 kubectl get pv
 ```
-
-**Expected Results:**
-- ✅ PVC Status: Bound (automatically)
-- ✅ EBS Volume: Created with gp3, encrypted
-- ✅ No manual EBS CSI driver installation needed
+> **Expected output:**
+> ```
+> # PVC should show STATUS: Bound
+> NAME       STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS
+> auto-pvc   Bound    pvc-16853261-f223-41cb-a5a8-d06853942034   1Gi        RWO            auto-ebs-sc
+> 
+> # Pod should show STATUS: Running
+> NAME           READY   STATUS    RESTARTS   AGE
+> storage-test   1/1     Running   0          17s
+> 
+> # PV should show the automatically created volume
+> NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM
+> pvc-16853261-f223-41cb-a5a8-d06853942034   1Gi        RWO            Delete           Bound    default/auto-pvc
+> ```
+> **Explanation:** Auto Mode automatically created an EBS volume, bound it to the PVC, and mounted it in the pod - all without installing any CSI drivers manually.
 
 ### Test 3: ALB Ingress (Load Balancer) Auto-Provisioning
 
@@ -385,8 +416,9 @@ EOF
 
 **Step 3: Create service for nginx deployment**
 ```bash
-kubectl expose deployment nginx-automode --port=80 --name=nginx-automode-service
+kubectl expose deployment nginx-automode --port=80 --name=nginx-alb-service
 ```
+> **Note:** We create a separate service for ALB testing (different from the NLB service created earlier).
 
 **Step 4: Create Ingress to trigger ALB**
 ```bash
@@ -404,7 +436,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: nginx-automode-service
+                name: nginx-alb-service
                 port:
                   number: 80
 EOF
