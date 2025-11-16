@@ -193,7 +193,9 @@ kubectl get nodes
 ```bash
 kubectl create deployment nginx-automode --image=nginx
 kubectl expose deployment nginx-automode --port=80 --type=LoadBalancer --name=nginx-automode-service
+kubectl annotate service nginx-automode-service service.beta.kubernetes.io/aws-load-balancer-scheme=internet-facing
 ```
+> **Note:** Auto Mode creates internal NLB by default, so we need the annotation to make it internet-facing.
 
 4. **Watch Auto Mode in action:**
 
@@ -222,8 +224,8 @@ kubectl get service nginx-automode-service
 
 6. **Verify LoadBalancer in AWS Console:**
    - Go to **EC2 → Load Balancers**
-   - You should see a new **Classic Load Balancer** being created
-   - Wait until the state shows "InService" (takes 3-5 minutes)
+   - You should see a new **Network Load Balancer** (NLB) being created
+   - Wait until the state shows "Active" (takes 3-5 minutes)
    - Copy the DNS name and browse to it in your web browser to see the nginx welcome page
 
 ### Step 3: Compare Both Clusters
@@ -256,7 +258,7 @@ kubectl get service nginx-automode-service
 
 ### Test 1: Auto Mode System Components
 
-**Step 1: Connect to Auto Mode cluster**
+**Step 1: Make sure you're connected to Auto Mode cluster**
 ```bash
 aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
 ```
