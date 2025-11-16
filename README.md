@@ -144,26 +144,6 @@ terraform apply
 2. **Check Compute Tab**: You should see "Auto Mode" enabled with node pools
 3. **Check EC2 Instances**: Initially no instances (Auto Mode creates them on-demand)
 
-### What Gets Created:
-
-**EKS with Managed Node Groups:**
-- **EKS Cluster**: Kubernetes version 1.34 control plane
-- **Managed Node Group**: 2 EC2 instances (t3.medium)
-- **IAM Roles**: With required policies automatically attached
-- **Security Groups**: For cluster and node communication
-
-**EKS Auto Mode Cluster:**
-- **EKS Cluster**: Kubernetes version 1.34 control plane with Auto Mode enabled
-- **Node Pools**: `general-purpose` and `system` pools (no pre-provisioned nodes)
-- **Enhanced IAM Policies**: Additional policies for compute, storage, networking, and load balancing
-- **Automatic Provisioning**: Nodes created only when workloads are deployed (Karpenter-like behavior)
-
-**Key Differences:**
-- **Managed Node Groups**: You manage node groups, scaling, instance types manually
-- **Auto Mode**: AWS automatically provisions optimal compute with built-in Karpenter-like capabilities and integrated AWS services
-
-**What's Next:** Test both clusters to see the operational differences.
-
 ---
 
 ## Phase 3: Deploy and Test Applications on Both Clusters
