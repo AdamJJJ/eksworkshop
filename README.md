@@ -247,13 +247,34 @@ kubectl get pods -o wide
 
 **Why this matters:** Understanding how Auto Mode handles complex scenarios that traditionally required manual configuration.
 
-### Test 1: Automatic EBS Storage Provisioning
+### Test 1: Auto Mode System Components
+
+```bash
+# Check Auto Mode CRDs (Custom Resource Definitions)
+kubectl get crd | grep eks.amazonaws.com
+
+# Check Auto Mode node pools
+kubectl get nodepools -A
+
+# Verify storage classes
+kubectl get storageclass
+
+# Check for AWS-managed components (should be minimal)
+kubectl get pods -A | grep -E "(ebs-csi|aws-load-balancer)"
+```
+
+**Key Insights:**
+- **Hidden Infrastructure**: EBS CSI, networking components run as AWS-managed services
+- **Minimal Cluster Overhead**: Fewer system pods compared to traditional EKS
+- **Automatic CRD Management**: Auto Mode CRDs appear automatically
+
+### Test 2: Automatic EBS Storage Provisioning
 
 **What we're testing:** Auto Mode's built-in EBS CSI driver functionality.
 
 ```bash
 # Ensure you're connected to Auto Mode cluster
-aws eks update-kubeconfig --region <your-region> --name eks-workshop-auto-cluster
+aws eks update-kubeconfig --region eu-central-1 --name eks-workshop-auto-cluster
 
 # Create storage class (Auto Mode provides EBS CSI automatically)
 kubectl apply -f - <<EOF
@@ -312,27 +333,6 @@ kubectl get pv
 - ✅ EBS Volume: Created with gp3, encrypted
 - ✅ No manual EBS CSI driver installation needed
 
-### Test 2: Auto Mode System Components
-
-```bash
-# Check Auto Mode CRDs (Custom Resource Definitions)
-kubectl get crd | grep eks.amazonaws.com
-
-# Check Auto Mode node pools
-kubectl get nodepools -A
-
-# Verify storage classes
-kubectl get storageclass
-
-# Check for AWS-managed components (should be minimal)
-kubectl get pods -A | grep -E "(ebs-csi|aws-load-balancer)"
-```
-
-**Key Insights:**
-- **Hidden Infrastructure**: EBS CSI, networking components run as AWS-managed services
-- **Minimal Cluster Overhead**: Fewer system pods compared to traditional EKS
-- **Automatic CRD Management**: Auto Mode CRDs appear automatically
-
 ### Test 3: ALB Ingress (Load Balancer) Auto-Provisioning
 
 **What we're testing:** Auto Mode's built-in AWS Load Balancer Controller functionality.
@@ -368,7 +368,7 @@ spec:
 EOF
 
 # Step 3: Create a service for our nginx deployment
-kubectl expose deployment nginx-automode --port=80 --name=nginx-automode-svc
+kubectl expose deployment nginx-automode --port=80 --name=nginx-automode-service
 
 # Step 4: Create Ingress (triggers ALB creation)
 kubectl apply -f - <<EOF
@@ -385,7 +385,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: nginx-automode-svc
+                name: nginx-automode-service
                 port:
                   number: 80
 EOF
