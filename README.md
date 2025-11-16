@@ -243,14 +243,32 @@ kubectl get service nginx-automode-service
 
 ### Step 4: Test Auto Scaling (Auto Mode)
 
+**Step 4a: Check current node capacity**
 ```bash
-# Scale up to trigger more nodes
-kubectl scale deployment nginx-automode --replicas=5
+kubectl get nodes
+kubectl describe nodes | grep -A 5 "Allocated resources"
+```
+> **Explanation:** This shows current node count and resource allocation before scaling.
 
-# Watch new nodes provision automatically
+**Step 4b: Scale up to trigger more nodes**
+```bash
+kubectl scale deployment nginx-automode --replicas=15
+```
+> **Note:** Using 15 replicas to ensure we exceed single node capacity and trigger auto-scaling.
+
+**Step 4c: Watch new nodes provision automatically**
+```bash
+# Watch nodes being added (takes 2-3 minutes)
+kubectl get nodes -w
+```
+> **Note:** Press Ctrl+C to stop watching once you see new nodes appear.
+
+**Step 4d: Verify scaling results**
+```bash
 kubectl get nodes
 kubectl get pods -o wide
 ```
+> **Explanation:** You should now see multiple nodes with pods distributed across them.
 
 **What You'll Observe:**
 - Auto Mode automatically provisions additional nodes as needed
