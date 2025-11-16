@@ -485,23 +485,53 @@ curl -I http://$ALB_HOSTNAME
 
 ### Key Takeaways
 
-**Auto Mode Advantages:**
-- ✅ **Zero Infrastructure Management**: No node groups, drivers, or controllers to manage
-- ✅ **Automatic Optimization**: Optimal instance selection and resource utilization
-- ✅ **Built-in Best Practices**: Security, networking, and storage configured automatically
-- ✅ **Built-in AWS Services**: EBS CSI, ALB Controller included automatically
+### Understanding EKS Auto Mode vs Managed Node Groups
 
-**When to Use Auto Mode:**
-- New applications without legacy constraints
-- Teams wanting to focus on applications, not infrastructure
-- Cost-sensitive workloads with variable demand
-- Rapid prototyping and development environments
+**EKS Auto Mode** represents a significant evolution in Kubernetes infrastructure management, combining secure and scalable cluster infrastructure with integrated Kubernetes capabilities fully managed by AWS. The service provides fully-managed worker node operations, eliminating the need for customers to set up Managed Node Groups or AutoScaling groups.
 
-**When to Use Managed Node Groups:**
-- Existing applications with specific node requirements
-- Need for custom AMIs or specialized configurations
-- Predictable workloads requiring consistent capacity
-- Advanced networking or security customizations
+**Key Architectural Differences:**
+
+**EKS Auto Mode:**
+- ✅ **Karpenter-Based Scaling**: Uses managed Karpenter system that automatically provisions EC2 instances in response to pod requests
+- ✅ **Bottlerocket AMIs**: Instances run on optimized Bottlerocket AMIs with pre-installed add-ons like EBS CSI drivers
+- ✅ **Automatic Pod-Driven Scaling**: No manual node group configuration required
+- ✅ **Built-in Load Balancer Controllers**: Automatically creates ALB/NLB based on Ingress resources
+- ✅ **Integrated Security**: Pre-configured Pod identity and security features
+- ✅ **Automatic Node Replacement**: Maximum node runtime of 21 days with automatic replacement
+- ✅ **Mixed Mode Support**: Can run alongside managed node groups in the same cluster
+
+**Managed Node Groups:**
+- ✅ **Predictable Capacity**: Static nodes with consistent performance characteristics
+- ✅ **Custom AMIs**: Support for custom AMIs and specialized configurations
+- ✅ **Launch Template Control**: Full control over instance configuration via launch templates
+- ✅ **Spot Instance Support**: On-Demand or Spot capacity types
+- ✅ **Multiple Node Groups**: Support for different instance types for stateful applications
+- ❌ **Manual Management**: Requires manual node group management and scaling configuration
+- ❌ **Single Instance Type**: Can only create nodes with a single instance type per node group
+
+### When to Choose Each Approach
+
+**Choose EKS Auto Mode when:**
+- **Minimizing Operational Burden**: You want the benefits of Kubernetes but need to minimize operational overhead around upgrades, auto-scaling, load balancing, and storage
+- **New Applications**: Building new applications without legacy constraints or specific node requirements
+- **Variable Workloads**: Cost-sensitive workloads with variable demand that benefit from automatic scaling
+- **Rapid Development**: Prototyping and development environments where speed matters more than customization
+- **Focus on Applications**: Teams wanting to focus on application development rather than infrastructure management
+
+**Choose Managed Node Groups when:**
+- **Existing Applications**: Legacy applications with specific node requirements or dependencies
+- **Custom Configurations**: Need for custom AMIs, specialized instance configurations, or advanced networking
+- **Predictable Workloads**: Applications requiring consistent capacity and performance characteristics
+- **Advanced Customization**: Requirements for specific security configurations, compliance needs, or specialized hardware
+- **Cost Predictability**: Workloads where predictable costs are more important than optimization
+
+### Cost Considerations
+
+- **Auto Mode**: Standard EC2 pricing plus a management fee only for Auto Mode-managed nodes
+- **Managed Node Groups**: Standard EC2 pricing with no additional management fees
+- **Hybrid Approach**: You can mix both approaches in the same cluster to optimize for different workload types
+
+Auto Mode takes EKS a step further in minimizing the undifferentiated heavy lifting that goes along with Kubernetes maintenance, making it ideal for teams who want to focus on their applications rather than infrastructure operations.
 
 ---
 
